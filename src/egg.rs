@@ -42,6 +42,10 @@ mod tests {
     #[test]
     fn test_range() {
         assert_eq!(10, (0..10).len());
+        for i in 1..4 {
+            print!("{i}")
+        }
+        println!()
     }
     #[test]
     fn test_rand() {

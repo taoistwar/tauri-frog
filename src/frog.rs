@@ -1,6 +1,12 @@
+use rand::Rng;
+
 use crate::{
-    config::{EGG_BRAIN_RADIUS, FROG_INIT_ENERGY},
+    config::{
+        EGG_BRAIN_RADIUS, ENV_X_SIZE, ENV_Y_SIZE, FOOD_ENERGY, FROG_INIT_ENERGY, ZONE_MOVE_DOWN,
+        ZONE_MOVE_LEFT, ZONE_MOVE_RANDOM, ZONE_MOVE_RIGHT, ZONE_MOVE_UP,
+    },
     egg::Egg,
+    env::Env,
 };
 
 pub struct Frog {
@@ -12,6 +18,7 @@ pub struct Frog {
     alive: bool,
     move_count: i32,
     brain_radius: f32,
+    eat_foods: i32,
 }
 
 impl Frog {
@@ -31,6 +38,94 @@ impl Frog {
             alive: true,
             move_count: 0,
             brain_radius,
+            eat_foods: 0,
+        }
+    }
+    pub fn active(&mut self, env: &mut Env) -> bool {
+        // 已经死亡，直接结束
+        if !self.alive {
+            return false;
+        }
+        // 越界者死
+        if self.x < 0 || self.x >= ENV_X_SIZE || self.y < 0 || self.y >= ENV_Y_SIZE {
+            return false;
+        }
+        let cells = &self.cells;
+        for cell in cells {
+            for output in &cell.outputs {
+                if ZONE_MOVE_UP.nearby_output(output) {
+                    self.y += 1;
+                    if self.y >= ENV_Y_SIZE {
+                        self.alive = false;
+                        continue;
+                    }
+                    self.check_food_and_eat(env)
+                    // self.move_up(env);
+                } else if ZONE_MOVE_DOWN.nearby_output(output) {
+                    self.move_down(env);
+                } else if ZONE_MOVE_LEFT.nearby_output(output) {
+                    self.move_left(env);
+                } else if ZONE_MOVE_RIGHT.nearby_output(output) {
+                    self.move_right(env);
+                } else if ZONE_MOVE_RANDOM.nearby_output(output) {
+                    self.move_random(env);
+                }
+            }
+        }
+        true
+    }
+    fn move_up(&mut self, env: &mut Env) {
+        self.y += 1;
+        if self.y >= ENV_Y_SIZE {
+            self.alive = false;
+            return;
+        }
+        self.check_food_and_eat(env)
+    }
+    fn move_down(&mut self, env: &mut Env) {
+        self.y -= 1;
+        if self.y < 0 {
+            self.alive = false;
+            return;
+        }
+        self.check_food_and_eat(env)
+    }
+    fn move_left(&mut self, env: &mut Env) {
+        self.x -= 1;
+        if self.x < 0 {
+            self.alive = false;
+            return;
+        }
+        self.check_food_and_eat(env)
+    }
+    fn move_right(&mut self, env: &mut Env) {
+        self.x += 1;
+        if self.x >= ENV_Y_SIZE {
+            self.alive = false;
+            return;
+        }
+        self.check_food_and_eat(env)
+    }
+    fn move_random(&mut self, env: &mut Env) {
+        let value = rand::thread_rng().gen_range(1..4);
+        if value == 1 {
+            self.move_left(env);
+        } else if value == 2 {
+            self.move_right(env);
+        } else if value == 3 {
+            self.move_up(env);
+        } else if value == 4 {
+            self.move_down(env);
+        }
+    }
+
+    fn check_food_and_eat(&mut self, env: &mut Env) {
+        let mut eat_food = false;
+        if env.exist_food(self.x, self.y) {
+            env.delete_food(self.x, self.y);
+            self.energy += FOOD_ENERGY;
+            self.eat_foods += 1;
+            // TODO 奖励
         }
     }
 }
@@ -154,6 +249,7 @@ impl Zone {
             radius: rand::random::<f32>() * radius * 0.1,
         }
     }
+
     fn get_x(self) -> f32 {
         self.x
     }
@@ -172,7 +268,15 @@ impl Zone {
     fn set_radius(mut self, radius: f32) {
         self.radius = radius;
     }
-    pub fn nearby(&self, other: Zone) -> bool {
+    pub fn nearby(&self, other: &Zone) -> bool {
+        let dist = self.radius + other.radius;
+        if (self.x - other.x).abs() < dist && (self.y - other.y).abs() < dist {
+            return true;
+        }
+        false
+    }
+    // TODO Zone特型
+    pub fn nearby_output(&self, other: &OutputZone) -> bool {
         let dist = self.radius + other.radius;
         if (self.x - other.x).abs() < dist && (self.y - other.y).abs() < dist {
             return true;
@@ -191,4 +295,7 @@ impl Zone {
         self.x = other.x;
         self.y - other.y;
     }
+}
+pub const fn new_zone(x: f32, y: f32, radius: f32) -> Zone {
+    Zone { x, y, radius }
 }

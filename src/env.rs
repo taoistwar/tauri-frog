@@ -43,6 +43,12 @@ impl Env {
         }
         self.foods = foods;
     }
+    pub fn exist_food(&mut self, x: usize, y: usize) -> bool {
+        self.foods[x][y] == 1u8
+    }
+    pub fn delete_food(&mut self, x: usize, y: usize) -> bool {
+        self.foods[x][y] == 0u8
+    }
 
     pub fn run(&mut self) {
         self.rebuild_frog_and_food();
